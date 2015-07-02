@@ -1,0 +1,27 @@
+---
+layout: post
+title: Leetcode 01：Two Sum
+---
+<p><a href="https://leetcode.com/problems/two-sum/" class="btn btn-github"><span class="icon"></span>题目链接</a></p>
+<!-- <p><a href="https://leetcode.com/problems/two-sum/" target="_blank"></a></p> -->
+<p>Given an array of integers, find two numbers such that they add up to a specific target number.</p>
+<p>The function twoSum should return indices of the two numbers such that they add up to the target, 
+where index1 must be less than index2. Please note that your returned answers (both index1 and index2) are not zero-based.</p>
+<p>You may assume that each input would have exactly one solution.</p>
+<p>Input: numbers={2, 7, 11, 15}, target=9</p>
+<p>Output: index1=1, index2=2</p>
+<p>&nbsp;</p>
+<!-- <meta name="description" content="Given an array of integers, find two numbers such that they add up to a specific target number.
+
+The function twoSum should return indices of the two numbers such that they add up to the target, where index1 must be less than index2. Please note that your returned answers (both index1 and index2) are not zero-based.
+
+You may assume that each input would have exactly one solution.
+
+
+Input: numbers={2, 7, 11, 15}, target=9
+Output: index1=1, index2=2
+" /> -->
+<h2>算法1：暴力枚举法</h2>
+<p>使用双层循环遍历数组numbers，对于每一个元素index1，遍历数组中的其它元素，找到与index1相加等于target的那个元素，记为index2。</p>
+<p>算法的时间复杂度为<div align="center"> \(O(n^{-1})\)</div>，空间复杂度为<div align="center"> \(O(1)\)</div>。
+<div class="date">{{ page.date | date_to_string }}</div>

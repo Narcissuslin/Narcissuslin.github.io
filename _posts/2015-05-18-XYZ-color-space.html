@@ -4,7 +4,7 @@ title: XYZ color space conversion
 ---
 <table id="content_table">
         <td id="content_article" colspan="3" align="justify">
-<h1>RGB Color Space Conversion</h1><div class="date">{{ page.date | date_to_string }}</div><p><img height="150" width="180" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/title.jpg" alt="title" style="margin: 12px; float: right;" />I've been on a bit of a color science kick lately and transferring from one color space to another becomes a common operation when you want to properly play with digital color values. Normally we just think of digital colors as RGB values, but there are many ways&nbsp;to numerically describe a color. Just opening PhotoShop's color picker lets you choose colors as HSV, Lab, or CMYK values in addition to the standard RGB. If you're a bit more adept with PhotoShop, you've may have even ventured into the Color Settings which has even more options including which version of RGB that your image will use. It is this concept of multiple RGB spaces that I'm going to focus on.&nbsp;</p>
+<p><img height="150" width="180" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/title.jpg" alt="title" style="margin: 12px; float: right;" />I've been on a bit of a color science kick lately and transferring from one color space to another becomes a common operation when you want to properly play with digital color values. Normally we just think of digital colors as RGB values, but there are many ways&nbsp;to numerically describe a color. Just opening PhotoShop's color picker lets you choose colors as HSV, Lab, or CMYK values in addition to the standard RGB. If you're a bit more adept with PhotoShop, you've may have even ventured into the Color Settings which has even more options including which version of RGB that your image will use. It is this concept of multiple RGB spaces that I'm going to focus on.&nbsp;</p>
 <p>&nbsp;</p>
 <p>Depending on how you ended up here, it might even be a surprise that there are multiple types of RGB, so I'll do my best to present some background on that and introduce a color space called XYZ. Then we can walk through the math for converting between all these RGB variants and discuss why you would even consider doing so. Finally, I'll present some example code for implementing the color space conversion.</p>
 <p>&nbsp;</p>
@@ -340,3 +340,5 @@ title: XYZ color space conversion
 <p>&nbsp;</p>
   		</td>
 </table>
+
+<div class="date">{{ page.date | date_to_string }}</div>

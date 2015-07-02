@@ -1,11 +1,10 @@
 ---
 layout: default
-title: 我的Blog
+title: Narcissus's Blog
 ---
 <h1>最新文章</h1>
 <ul>
-　　{% for post in site.posts %}
-　　　　<li>{{ post.date | date_to_string }} " <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a> "</li>
-　　{% endfor %}
-	<li>"<a href="{{ site.baseurl }}/Hello-World">Repository test: Hello World!</a>"</li>
+	{% for post in site.posts %}
+		<li>{{ post.date | date_to_string }} " <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a> "</li>
+	{% endfor %}
 </ul>
