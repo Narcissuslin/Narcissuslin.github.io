@@ -1,0 +1,387 @@
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="/stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="/stylesheets/pygment_trac.css" media="screen">
+	<script type="text/javascript" src="http://www.ryanjuckett.com/MathJax/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script><script type="text/javascript" src="http://www.ryanjuckett.com/SyntaxHighlighter/scripts/shCore.js"></script>
+	<script type="text/javascript" src="http://www.ryanjuckett.com/SyntaxHighlighter/scripts/shAutoloader.js"></script>
+    <title>XYZ color space conversion</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>XYZ color space conversion</h1>
+	<!--
+        <section id="downloads">
+          <a href="https://github.com/Narcissuslin/Narcissuslin.github.io" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+	-->
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+	      <div id="post">
+<table id="content_table">
+        <td id="content_article" colspan="3" align="justify">
+<p><img height="150" width="180" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/title.jpg" alt="title" style="margin: 12px; float: right;" />I've been on a bit of a color science kick lately and transferring from one color space to another becomes a common operation when you want to properly play with digital color values. Normally we just think of digital colors as RGB values, but there are many ways&nbsp;to numerically describe a color. Just opening PhotoShop's color picker lets you choose colors as HSV, Lab, or CMYK values in addition to the standard RGB. If you're a bit more adept with PhotoShop, you've may have even ventured into the Color Settings which has even more options including which version of RGB that your image will use. It is this concept of multiple RGB spaces that I'm going to focus on.&nbsp;</p>
+<p>&nbsp;</p>
+<p>Depending on how you ended up here, it might even be a surprise that there are multiple types of RGB, so I'll do my best to present some background on that and introduce a color space called XYZ. Then we can walk through the math for converting between all these RGB variants and discuss why you would even consider doing so. Finally, I'll present some example code for implementing the color space conversion.</p>
+<p>&nbsp;</p>
+<h1>Multiple RGB Spaces</h1>
+<p>When&nbsp;you tell a pixel to draw using RGB components, you are specifying intensity values for red, green, and blue primary&nbsp;lights which output to the pixel. When your monitor mixes these lights, you get&nbsp;the desired color.&nbsp;The problem is that there are many types of displays out there and the primary lights might not all be the same. Granted the lights will be similar, but the red&nbsp;primary on one monitor may&nbsp;not <em>exactly</em> match the red primary on another monitor. For example, the primaries of your old CRT television do not match your new&nbsp;high-definition LCD television.&nbsp;When the primary lights don't match, a color with the same RGB components will also not match because it is adding together different primary colors.</p>
+<p>&nbsp;</p>
+<p>The range of colors producible by the primary lights of an RGB space is called its <a href="http://en.wikipedia.org/wiki/Gamut">gamut</a>, and it's important to note that when two spaces have different gamuts, there will be colors that one space can produce and the other cannot.</p>
+<p>&nbsp;</p>
+<p>For lots of applications this whole concept isn't really anything to worry about. As long as your reds look reddish and your greens look greenish, all is well. When color accuracy is important or if you want to become some sort of color-nazi, you'll want to convert from one color space&nbsp;to another. One use might be to convert a texture that was painted on an LCD monitor to matching (or as close to matching as possible) color values for display on a CRT television.</p>
+<p>&nbsp;</p>
+<h1>XYZ Color Space and Chromaticity</h1>
+<p>So far we have been describing colors as a combination of the&nbsp;red, green, and blue primary lights of an RGB color space. In order to compare one color space to another, it would be useful to have a standardized general space that any visible color can be defined within. Fortunately, there is an authority on these things to help us out. The <a href="http://en.wikipedia.org/wiki/International_Commission_on_Illumination">Commission internationale de l'&eacute;clairage</a> (French for International Commission on Illumination and often abbreviated as CIE) is located in Austria.</p>
+<p>&nbsp;</p>
+<p>In order to&nbsp;define different RGB color spaces in a&nbsp;common manner, we will use the <a href="http://en.wikipedia.org/wiki/CIE_1931_color_space">CIE 1931 XYZ color space</a>. The XYZ space was designed around being able to describe all colors visible to humans.&nbsp;I mention "human vision" specifically because&nbsp;different species can actually view different parts of the light spectrum.&nbsp;For example, some <a href="http://en.wikipedia.org/wiki/Bird_vision">birds</a> can actually see UV light, but don't get too jealous because they also get more harmful radiation in their eyes as a result. There are a few&nbsp;facts about XYZ space that I want to point out before we progress.</p>
+<ul>
+<li>All human-visible colors have positive X, Y, and Z values. This means that we only care about one octanct of XYZ space when it comes to color conversion.</li>
+<li>The Y value of an XYZ color represents the relative luminance of the color as percieved by the human eye (because all eyes are a bit different, this is really an approximation based on experimental data).&nbsp;Colors&nbsp;with higher Y values&nbsp;are perceived brighter and colors with equal Y values are perceived to have the same brightness.</li>
+<li>Only a subsection of the positive octant even corresponds to actual colors represented by visible light (or any light for that matter). In other words, some XYZ values have no counterpart in the real world. As long as we behave and stay in this visible subspace (i.e. don't just start defining colors as random XYZ values), we won't run into any issues.</li>
+</ul>
+<p>&nbsp;</p>
+<p>Three-dimensional color diagrams can be a bit confusing so fortunately&nbsp;our friends over at the CIE have given us yet another tool to describe color, the two dimensional xy&nbsp;<a href="http://en.wikipedia.org/wiki/Chromaticity">chromaticity </a>space. Chromaticity is the description of a color ignoring its <a href="http://en.wikipedia.org/wiki/Luminance">luminance</a>. Because a color can be uniquely defined as a combination of luminance, <a href="http://en.wikipedia.org/wiki/Hue">hue </a>and <a href="http://en.wikipedia.org/wiki/Colorfulness">colorfulness</a>, we can also say that chromaticity is a combination of hue and colorfulness.&nbsp;For example, saying that a color is a saturated red&nbsp;would describe a chromaticity, while bright saturated red would describe luminance along with chromaticity.</p>
+<p>&nbsp;</p>
+<p>So how do we mathematically specify chromaticity? We can use the CIE 1931 xyY color space. Beware from here on out because I'll be using lowercase x, y, and z to mean one set of values and uppercase X, Y, and Z to mean another set of values. Don't blame me for this -&nbsp;it was all decided over in Austria.</p>
+<p>&nbsp;</p>
+<p>We are going to define three values x, y, and z in terms of X, Y, and Z as follows (finally some math!).</p>
+<p><div align="center">\(x\ =\ \frac{X}{X+Y+Z}\)</div></p>
+<p><div align="center">\(y\ =\ \frac{Y}{X+Y+Z}\)</div></p>
+<p><div align="center">\(z\ =\ \frac{Z}{X+Y+Z}\)</div></p>
+<p>&nbsp;</p>
+<p>Based on these equations we can infer</p>
+<p><div align="center">\(x\ +\ y\ +\ z\ =\ 1\)</div></p>
+<p>because</p>
+<p><div align="center">\(\frac{X}{X+Y+Z}\ +\ \frac{Y}{X+Y+Z}\ +\ \frac{Z}{X+Y+Z}\ =\ \frac{X+Y+Z}{X+Y+Z}\ =\ 1\)</div></p>
+<p>&nbsp;</p>
+<p>Knowing that x, y and z sum to 1, lets us define one of these components in terms of the other two. Let's do so for the z component.</p>
+<p><div align="center">\(z\ =\ 1\ -\ x\ -\ y\)</div></p>
+<p>&nbsp;</p>
+<p>Because we can derive z from x and y, we only really need to specify x and y to describe a unique xyz value. If we are given an xy value of (0.2, 0.3), we know the z value to be 0.5. While this may all seem a bit arbitrary, what it has done is created a two-dimensional xy space that we can easily graph on a two-dimensional surface.</p>
+<p>&nbsp;</p>
+<p>You may have noticed that I listed this space as CIE 1931 xyY color space and not xy or xyz color space. The reasoning here is that we need either X, Y or Z to recreate our original color. With xyz values, we have lost some information. The fact that they can be uniquely represented in two-dimensions should be a tip-off that something shady was going down. While any of the original XYZ components can be used along with xy to recompute the original color, we use the Y component because it represents the luminosity and we might as well have that number lying around instead of X or Z which don't mean anything too comprehendible on their own.</p>
+<p>&nbsp;</p>
+<p>Now that we can describe color (excluding luminance) in a two-dimensional space, it's&nbsp;the perfect time for a picture.</p>
+<p>&nbsp;</p>
+<p><div align="center"><img height="300" width="300" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/chromaticity_visible_area.jpg" alt="chromaticity_visible_area" /></div></p>
+<p>&nbsp;</p>
+<p>I mentioned earlier that only part of XYZ space corresponds to human-visible color. The area shown in this diagram is the xy representation of that visible range. You monitor isn't capable of displaying all visible chromaticities (unless maybe you are reading this long after&nbsp;I wrote it&nbsp;in which case, awesome!). This is why I haven't bothered to put much color in this image. The subtle color you do see is sort of a compression of all visible chromaticities into RGB space but even that is a bit of a hack&nbsp;and&nbsp;I wouldn't view the displayed chromaticities as anything scientific.</p>
+<p>&nbsp;</p>
+<p>Without getting too off track, if you are familiar with linear algebra or 3D math, you might be wondering what we are actually looking at here spatially (it did all start from some 3D XYZ space after all).&nbsp;When creating the xyz values we essentially made a perspective projection of&nbsp;XYZ space onto&nbsp;the XYZ&nbsp;plane containing the points (1,0,0), (0,1,0), (0,0,1). In doing so, the positive&nbsp;octant of XYZ space all ends up in the triangle created by those three points. Our xy chromaticity diagram is an orthographic view of this three-dimensional triangle along the Z-axis.</p>
+<p>&nbsp;</p>
+<h1>Defining an RGB Color Space</h1>
+<p>Now that we are familiar with XYZ space and xy chromaticity coordinates, we can start using them to <a href="http://www.brucelindbloom.com/index.html?WorkingSpaceInfo.html">define&nbsp;RGB color spaces</a>. This definition consists of xy chromaticity values for the red primary, green primary, blue primary, and <a href="http://en.wikipedia.org/wiki/White_point">white point </a>along with a <a href="http://en.wikipedia.org/wiki/Gamma_correction">gamma correction curve</a>. I'll be using the <a href="http://en.wikipedia.org/wiki/SRGB">sRGB</a> color space in my examples below. sRGB is the standard color space for the internet and thus your browser should do a pretty good job of displaying it. This actually brings up an interesting example of where color space conversion could be of use. If it is assumed that the internet is all encoded with sRGB color, and you were making some new cell phone that has different display primaries, you would optimally map from sRGB space to the phone's RGB space when browsing the web.</p>
+<p>&nbsp;</p>
+<h3>Red, Green and Blue Primaries</h3>
+<p>Chromaticity coordinates are given for each primary of the display.&nbsp;For sRGB space, they are as follows:</p>
+<p><div align="center">red = \(\begin{bmatrix}0.64 \\ 0.33\end{bmatrix}\)</div></p>
+<p><div align="center">green&nbsp;= \(\begin{bmatrix}0.30 \\ 0.60\end{bmatrix}\)</div></p>
+<p><div align="center">blue&nbsp;= \(\begin{bmatrix}0.15 \\ 0.06\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>If you recall from earlier, the gamut of a color space is the subset of color that can be represented by that space. We can now graph the sRGB gamut on our chromaticity diagram. Comparing the listed chromaticity coordinates with the diagram, you'll find they match&nbsp;the corners&nbsp;of the triangular sRGB color gamut.</p>
+<p>&nbsp;</p>
+<p><div align="center"><img height="300" width="300" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/chromaticity_equal_luminance.jpg" alt="chromaticity_equal_luminance" /></div></p>
+<p>&nbsp;</p>
+<p>Being the standard color space of the internet (and probably pretty close to your monitor's color space), only&nbsp;chromaticities within that triangle can be created on the web. I have also specifically rendered this image to accurately represent those chromaticities assuming your monitor is properly calibrated (which it probably isn't - mine certainly isn't).</p>
+<p>&nbsp;</p>
+<p>The first time I ever saw one of these diagrams I was a bit concerned, because it looks like our monitors don't come close to handling the color green. Just look at all that visible color to the upper left of the triangle that cannot be displayed! Fortunately, it turns out that things aren't as bad as they look. Both xy and XYZ space are a bit stretched and skewed with respect to how we perceive color. You'll notice a bunch of little dots curving around the diagram in the shape of a tongue. Those dots represent the visible light spectrum in terms of wavelength separated at intervals of 5 nanometers. The details of it are a bit off topic from our goals, but knowing that they have some linear spacing helps us see the distortion in the diagram. The dots travel from red light, through green light, and end at blue light. As you can see, the spacing gets stretched near the greens and very compressed near the blues and reds. Essentially, the error in green color isn't as bad as the diagram makes it seem.</p>
+<p>&nbsp;</p>
+<h3>White Point</h3>
+<p>This might seem a bit odd at first, but the white point is used to specify the color of white. One might expect that the color of white would actually be white, but that is only half true. I say that it's "half true" because perceptually a color may look white,&nbsp;while physically it actually has some color tint.&nbsp;The human vision system is a complex beast and will more or less choose what color should be perceived as white according to what is in view. This color which should be considered as white is known as the white point.</p>
+<p>&nbsp;</p>
+<p>For example, normal incandescent light bulbs give off a red-orange light, while mid-day sun light&nbsp;is closer to a more neutral white. Regardless of this color shift, you perceive a white piece of paper as being white when you look at it under a light bulb or outside on a sunny day. Granted,&nbsp;you may be conscious of the hue shift to some extent, but the point is that you do not get confused thinking that all of your paper turned reddish when you are&nbsp;under a light bulb.&nbsp;Understanding this perceptual effect is actually important in photography. Color correction is often applied to photographs such that the white points which images were captured at&nbsp;are converted to the white points at which images will be viewed at.</p>
+<p>&nbsp;</p>
+<p>For sRGB, the white point has chromaticity coordinates (0.3127, 0.3290). This white point is also known as <a href="http://en.wikipedia.org/wiki/D65">D65</a>&nbsp;which is an estimation of the white color produced by mid-day sunlight. Let's map it on the chromaticity diagram.</p>
+<p>&nbsp;</p>
+<p><div align="center"><img height="300" width="300" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/chromaticity_white_point.jpg" alt="chromaticity_white_point" /></div>&nbsp;</p>
+<p>&nbsp;</p>
+<h3>Gamma Correction Curve</h3>
+<p>The gamma correction curve&nbsp;is used to convert pixel luminance from a linear scale to an exponential scale. When encoding the final pixel value, the curve&nbsp;is used to gamma compress linear luminance to a gamma&nbsp;corrected value. When decoding a pixel value, the inverse curve is used to gamma expand the value back to linear units.</p>
+<p>&nbsp;</p>
+<p>We don't perceive&nbsp;the luminance of a color on a linear scale, so this gamma compression actually helps us store more useful information in a limited number of bits per pixel.&nbsp;This nonlinear relationship between linear luminance and the perceived&nbsp;brightness of a color (also known as <a href="http://en.wikipedia.org/wiki/Lightness_(color)">lightness</a>) is shown below.</p>
+<p><div align="center"><img height="64" width="260" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/luminance_linear.jpg" alt="luminance_linear" /></div></p>
+<p>If we were to store image values on a linear scale, single steps in value would correspond to large steps in lightness on the lower end of the scale and minor steps in lightness at the higher end of the scale. As a result, we would lose a lot of lightness&nbsp;fidelity in dark colors.</p>
+<p>&nbsp;</p>
+<p>Now let's look at luminance using the sRGB gamma corrected curve.</p>
+<p><div align="center"><img height="64" width="260" src="http://www.ryanjuckett.com/programming/rgb-color-space-conversion/luminance_gamma.jpg" alt="luminance_gamma" /></div></p>
+<p>We now get consistent steps of lightness across all values letting us encode lightness with more fidelity across the entire scale. While this image does show linear lightness (human perception), it should be stressed that we are no longer working with linear luminance (physics).</p>
+<p>&nbsp;</p>
+<p>This concept is the source of a lot of lighting errors in older 3D video games (actually a number of new ones still have the problem too). Because of hardware limitations and performance issues, some video games just perform their lighting in the non-linear RGB&nbsp;space that their textures were encoded in. This results in the addition of lights creating brighter results than intended. This is pretty easy to see in the above images. If you locate the pixel with a grey color of (128,128,128) in each scale, you will see that it is around 22% into the linear luminance image and exactly 50% in the gamma corrected image. Now let's say you were adding two lights together at this luminance. In the linear scale you would double your 22% putting&nbsp;you 44% into the linear image which has&nbsp;the correct&nbsp;value of (178,178,178). In the gamma corrected scale&nbsp;you would double your 50% putting you at 100% into the gamma corrected image which has an over-bright value of (255,255,255).</p>
+<p>&nbsp;</p>
+<p>In addition to the benefits of encoding lightness, gamma curves are also chosen to match physical output properties of a display device. For example, the electron guns of a CRT monitor have a non-linear output and must be supplied with gamma corrected input such that the appropriate&nbsp;real-world luminance is created.</p>
+<p>&nbsp;</p>
+<p>A simple gamma correction curve is&nbsp;often defined as&nbsp;\(\mathrm{compressed} = \mathrm{linear} ^ {1 / \gamma}\) where the gamma value, \(\gamma\), is some number greater than 1.0. In the case of sRGB, the gamma curve is a bit more involved. It is built by piecing together two separate curves. Lower input values use a linear curve while higher while higher input values use an exponential curve.</p>
+<p>&nbsp;</p>
+<p>The equations to convert linear sRGB values to gamma corrected sRGB values are</p>
+<p><div align="center">\(C_{\mathrm{srgb}}= \begin{cases}(12.92)C_{\mathrm{linear}}, &amp; C_{\mathrm{linear}} \le 0.0031308\\ (1.055)C_{\mathrm{linear}}^{1/2.4}-0.055, &amp; C_{\mathrm{linear}} &gt; 0.0031308 \end{cases}\)</div></p>
+<p>&nbsp;</p>
+<p>and the equations to convert gamma corrected sRGB values back to linear sRGB values are</p>
+<p><div align="center">\(C_{\mathrm{linear}}=<br />\begin{cases}\frac{C_{\mathrm{srgb}}}{12.92}, &amp; C_{\mathrm{srgb}}\le0.04045\\<br />\left(\frac{C_{\mathrm{srgb}}+0.055}{1.055}\right)^{2.4}, &amp; C_{\mathrm{srgb}}&gt;0.04045<br />\end{cases}\)</div></p>
+<p>&nbsp;</p>
+<h1>Linear Transformation of Color</h1>
+<p>We now know how an RGB color space is defined and how to use the gamma curve for converting between linear and gamma corrected values. That leaves us with the final step of converting from a linear RGB color to an XYZ color. Once we are in XYZ space we&nbsp;can convert back to any RGB space of our choosing, but that's really just the beginning. Because XYZ space is&nbsp;a standard color space from&nbsp;which others are defined,&nbsp;we could choose to convert to a number of non-RGB color spaces such as the more perceptually uniform <a href="http://en.wikipedia.org/wiki/Lab_color_space">Lab color space</a> or the biologically&nbsp;driven <a href="http://en.wikipedia.org/wiki/LMS_color_space">LMS color space</a>.</p>
+<p>&nbsp;</p>
+<p>A fundamental part of the conversion between linear RGB space and XYZ space is recognizing that they are both <a href="http://en.wikipedia.org/wiki/Vector_space">vector spaces</a>. This basically means that numbers scale in a linear fashion. In contrast, the gamma corrected sRGB space scales luminance in a non-linear manner and is thus not a vector space with respect to luminance. If you've got some sort of math fetish and want to go into more depth on the subject,&nbsp;look up&nbsp;<a href="http://en.wikipedia.org/wiki/Grassmann%27s_law_(optics)">Grassmann's law</a> which talks about color perception as linear combinations.</p>
+<p>&nbsp;</p>
+<p>Knowing that we are working within a vector space puts a whole assortment of linear algebra tools at our disposal. One such tool from linear algebra we will make use of is defining the basis of one color space in terms of another. This is similar to defining the transformation of an object in a 3d space.</p>
+<p>&nbsp;</p>
+<p>As we discussed earlier, an RGB color space is built by adding together three primary colors.&nbsp;The first primary is near the red portion of the spectrum. The second is near green. The third is near blue.&nbsp;To get the color yellow, we add the&nbsp;red and green primary colors together. This operation can be viewed as&nbsp;3-dimensional vector addition. Let vectors \({\bf i}\), \({\bf j}\) and \({\bf k}\) equal our primary colors red, green, and blue respectively such that</p>
+<p><div align="center">\({\bf i} = \mathrm{red} = \begin{bmatrix}1\\0\\0\end{bmatrix}\ \ \ {\bf j} = \mathrm{green} = \begin{bmatrix}0\\1\\0\end{bmatrix}\ \ \ {\bf k} = \mathrm{blue} = \begin{bmatrix}0\\0\\1\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>We can now define yellow as vector \({\bf i}\) plus vector \({\bf j}\).</p>
+<p><div align="center">\({\bf \mathrm{yellow}} = {\bf i} + {\bf j} = \begin{bmatrix}1\\0\\0\end{bmatrix} + \begin{bmatrix}0\\1\\0\end{bmatrix} = \begin{bmatrix}1\\1\\0\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>The color orange is a combination of the red primary and half of the green primary. This requires us to scale the green primary when we add it to red. The resulting math for orange is</p>
+<p><div align="center">\({\bf \mathrm{orange}} = {\bf i} + 0.5{\bf j} = \begin{bmatrix}1\\0\\0\end{bmatrix} + 0.5\begin{bmatrix}0\\1\\0\end{bmatrix} = \begin{bmatrix}1\\0.5\\0\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Essentially, any color in a linear&nbsp;RGB space can be built as a linear combination of the \({\bf i}\), \({\bf j}\), and \({\bf k}\) (i.e. red, green, and blue) basis vectors for that space. In more general terms, we can define any color using a red&nbsp;scalar \(r\), green scalar \(g\), and blue scalar \(b\) using the following equation.</p>
+<p><div align="center">\({\bf \mathrm{color}} = r{\bf i} + g{\bf j} + b{\bf k}\)</div></p>
+<p>&nbsp;</p>
+<p>This might seem like we are over complicating the situation, but it will pay off. First, let's just run through some examples defining colors in this manner.</p>
+<p>&nbsp;</p>
+<table cellpadding="3" cellspacing="0" border="1">
+<tbody>
+<tr valign="top" style="background-color: #d3d3d3;">
+<td align="center"><strong>color</strong></td>
+<td valign="top" align="center" style="width: 25px;"><strong>r</strong></td>
+<td valign="top" align="center" style="width: 25px;"><strong>g</strong></td>
+<td valign="top" align="center" style="width: 25px;"><strong>b</strong></td>
+<td align="center"><strong>equation</strong></td>
+</tr>
+<tr>
+<td align="center">yellow</td>
+<td align="center">1</td>
+<td align="center">1</td>
+<td align="center">0</td>
+<td align="center">\(1{\bf i}+1{\bf j}+0{\bf k} = \begin{bmatrix}1\\1\\0\end{bmatrix}\)</td>
+</tr>
+<tr>
+<td align="center">orange</td>
+<td align="center">1</td>
+<td align="center">0.5</td>
+<td align="center">0</td>
+<td align="center">\(1{\bf i}+0.5{\bf j}+0{\bf k} = \begin{bmatrix}1\\0.5\\0\end{bmatrix}\)</td>
+</tr>
+<tr>
+<td align="center">cyan</td>
+<td align="center">0</td>
+<td align="center">1</td>
+<td align="center">1</td>
+<td align="center">\(0{\bf i}+1{\bf j}+1{\bf k} = \begin{bmatrix}0\\1\\1\end{bmatrix}\)</td>
+</tr>
+<tr>
+<td align="center">red</td>
+<td align="center">1</td>
+<td align="center">0</td>
+<td align="center">0</td>
+<td align="center">\(1{\bf i}+0{\bf j}+0{\bf k} = \begin{bmatrix}1\\0\\0\end{bmatrix}\)</td>
+</tr>
+<tr>
+<td align="center">blue</td>
+<td align="center">0</td>
+<td align="center">0</td>
+<td align="center">1</td>
+<td align="center">\(0{\bf i}+0{\bf j}+1{\bf k} = \begin{bmatrix}0\\0\\1\end{bmatrix}\)</td>
+</tr>
+</tbody>
+</table>
+<table border="0">
+<tbody>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<p>In the examples above, the&nbsp;RGB&nbsp;primaries, i, j and k, were defined with respect to their own&nbsp;RGB color space which made the values fairly trivial. Things become more interesting when we start working with respect to a different color space such as XYZ.</p>
+<p>&nbsp;</p>
+<p>The goal is to find the three XYZ colors that match the primaries of a linear RGB space. Once we have \({\bf i}\), \({\bf j}\), and \({\bf k}\) in XYZ space, we can use the same \(r\), \(g\) and \(b\) scalars to find the XYZ value of&nbsp;an RGB color. I'll be going over how we can derive these new primaries momentarily, but first let's assume we already know their values so we can clarify the process with an example. Let \({\bf l}\) be the red primary in XYZ space, \({\bf m}\) be the green primary in XYZ space and \({\bf n}\) be the blue brimary in XYZ space.</p>
+<p>&nbsp;</p>
+<p>We can now&nbsp;calculate&nbsp;any linear RGB&nbsp;color in XYZ space as a linear combination of the primaries in XYZ space.</p>
+<p><div align="center">\({\bf \mathrm{color}_{\mathrm{XYZ}}} = r{\bf l} + g{\bf m} + b{\bf n}\)</div></p>
+<p>&nbsp;</p>
+<p>Recalling that orange was defined by the scalars r=1, g=0.5 and b=0, we can calculate the linear RGB color orange in XYZ space like so:</p>
+<p><div align="center">\({\bf \mathrm{orange}_{\mathrm{XYZ}}} = 1{\bf l} + 0.5{\bf m} + 0{\bf n}\)</div></p>
+<p>&nbsp;</p>
+<p>We can take this whole process one step further by recognizing that we are really <a href="http://en.wikipedia.org/wiki/Matrix_multiplication">multiplying a vector by a transformation matrix</a> to convert it from linear RGB space to XYZ&nbsp;space. In the previous example we were using the XYZ vectors \({\bf l}\), \({\bf m}\) and&nbsp;\({\bf n}\)&nbsp;to build the transformation matrix. Let's specify the three vectors in terms of their components.</p>
+<p><div align="center">\({\bf l} = \begin{bmatrix}l_X\\l_Y\\l_Z\end{bmatrix}\ \ \ {\bf m} = \begin{bmatrix}m_X\\m_Y\\m_Z\end{bmatrix}\ \ \ {\bf n} = \begin{bmatrix}n_X\\n_Y\\n_Z\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>By combing these three column vectors into a column major transformation matrix, we can rewrite our color transformation equation as follows.</p>
+<p><div align="center">\({\bf \mathrm{color}_{\mathrm{XYZ}}} = \begin{bmatrix}l_X &amp; m_X &amp; n_X\\l_Y &amp; m_Y &amp; n_Y\\l_Z &amp; m_Z &amp; n_Z\end{bmatrix}\begin{bmatrix}r\\g\\b\end{bmatrix}\)&nbsp;</div></p>
+<p>&nbsp;</p>
+<h1>Deriving the Transformation Matrices</h1>
+<p>As shown earlier, the transformation matrix from linear RGB space to XYZ space has columns built from the primary RGB colors in XYZ space. In order to find these values, we need to use the RGB space's xy chromaticity coordinates for red, green, blue, and white. Notice that we only have the x and y coordinates. As discussed earlier, we can compute the z coordinate from&nbsp;x and y&nbsp;but we need either X, Y or Z in order to convert back to XYZ coordinates. As it stands, we don't have enough information to go from xy chromaticity space to XYZ space, but do to the intentions of our transformation, we can make one more assumption.</p>
+<p>&nbsp;</p>
+<p>Let's clarify the purpose of this transformation. I&nbsp;previously mentioned how the eye adapts to the lighting environment to choose what color should be perceived as white. For our purposes we want to consider the perceived white as being maximum luminance. This means that if we transformed from RGB space A into XYZ space and then into RGB space B, we would want the white from RGB space A to maintain luminance&nbsp;in RGB space B.&nbsp;All we need to do is make sure that when&nbsp;an RGB space transforms into XYZ space the white values always ends up with a consistent Y (i.e. a consistent relative luminosity).</p>
+<p>&nbsp;</p>
+<p>I mentioned that choosing any Y luminosity for the white points will do as long as we are consistent, but it is standard practice to use a Y value of 1&nbsp;for full luminance. Sometimes you may see a Y of 100 used as full luminance, but in this instance a value of 1 is the norm. With a target Y value for white, we now have enough constraints to solve for our matrix. Let's list the variables we start with.</p>
+<p>&nbsp;</p>
+<table cellpadding="3" cellspacing="0" border="1">
+<tbody>
+<tr valign="top" style="background-color: #d3d3d3;">
+<td align="center"><strong>variable</strong></td>
+<td align="center"><strong>value</strong></td>
+<td align="center"><strong>description</strong></td>
+</tr>
+<tr>
+<td align="center">\({\bf r}_{\mathrm{RGB}}\)</td>
+<td align="center">\(\begin{bmatrix}1\\0\\0\end{bmatrix}\)</td>
+<td align="center">The linear RGB coordinates of the red primary.</td>
+</tr>
+<tr>
+<td align="center">\({\bf g}_{\mathrm{RGB}}\)</td>
+<td align="center">\(\begin{bmatrix}0\\1\\0\end{bmatrix}\)</td>
+<td align="center">The linear RGB coordinates of the green primary.</td>
+</tr>
+<tr>
+<td align="center">\({\bf b}_{\mathrm{RGB}}\)</td>
+<td align="center">\(\begin{bmatrix}0\\0\\1\end{bmatrix}\)</td>
+<td align="center">The linear RGB coordinates of the blue primary.</td>
+</tr>
+<tr>
+<td align="center">\({\bf w}_{\mathrm{RGB}}\)</td>
+<td align="center">\(\begin{bmatrix}1\\1\\1\end{bmatrix}\)</td>
+<td align="center">The linear RGB coordinates of the while point.</td>
+</tr>
+<tr>
+<td align="center">\({\bf r}_{\mathrm{xy}}\)</td>
+<td align="center">This is defined per RGB space.</td>
+<td align="center">The xy chromaticity coordinates of the red primary.</td>
+</tr>
+<tr>
+<td align="center">\({\bf g}_{\mathrm{xy}}\)</td>
+<td align="center">This is defined per RGB space.</td>
+<td align="center">The xy chromaticity coordinates of the green primary.</td>
+</tr>
+<tr>
+<td align="center">\({\bf b}_{\mathrm{xy}}\)</td>
+<td align="center">This is defined per RGB space.</td>
+<td align="center">The xy chromaticity coordinates of the blue primary.</td>
+</tr>
+<tr>
+<td align="center">\({\bf w}_{\mathrm{xy}}\)</td>
+<td align="center">This is defined per RGB space.</td>
+<td align="center">The xy chromaticity coordinates of the white point.</td>
+</tr>
+<tr>
+<td align="center">\(w_{\mathrm{Y}}\)</td>
+<td align="center">\(1\)</td>
+<td align="center">The relative luminance value of the white point in XYZ space.</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<p>The goal is to solve for a column-major transformation matrix, \({\bf M}\), that will convert from linear RGB space to XYZ space. The first step is to convert all xy chromaticity coordinates to xyz chromaticity coordinates by using the previously discussed equation \(z = 1 - x - y\).</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf r}_{\mathrm{xyz}}=\begin{bmatrix}r_{\mathrm{x}} \\ r_{\mathrm{y}} \\ 1-r_{\mathrm{x}}-r_{\mathrm{y}}\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf g}_{\mathrm{xyz}}=\begin{bmatrix}g_{\mathrm{x}} \\ g_{\mathrm{y}} \\ 1-g_{\mathrm{x}}-g_{\mathrm{y}}\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf b}_{\mathrm{xyz}}=\begin{bmatrix}b_{\mathrm{x}} \\ b_{\mathrm{y}} \\ 1-b_{\mathrm{x}}-b_{\mathrm{y}}\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf w}_{\mathrm{xyz}}=\begin{bmatrix}w_{\mathrm{x}} \\ w_{\mathrm{y}} \\ 1-w_{\mathrm{x}}-w_{\mathrm{y}}\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>The next step is to define an equation for converting from xyz space to XYZ space. Using the XYZ to xyz equations \(x=\frac{X}{X+Y+Z}\), \(y=\frac{Y}{X+Y+Z}\) and \(z=\frac{Z}{X+Y+Z}\), let's define&nbsp;an XYZ vector \({\bf v}_{\mathrm{XYZ}}\) in terms of its chromaticity coordinates \({\bf v}_{\mathrm{xyz}}\)</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf v}_{\mathrm{xyz}}\ =\ (\frac{v_{\mathrm{X}}}{v_{\mathrm{X}}+v_{\mathrm{Y}}+v_{\mathrm{Z}}},\ \frac{v_{\mathrm{Y}}}{v_{\mathrm{X}}+v_{\mathrm{Y}}+v_{\mathrm{Z}}},\ \frac{v_{\mathrm{X}}}{v_{\mathrm{Z}}+v_{\mathrm{Y}}+v_{\mathrm{Z}}})\)</div></p>
+<p><div align="center">\({\bf v}_{\mathrm{xyz}}\ =\ \frac{1}{v_{\mathrm{X}}+v_{\mathrm{Y}}+v_{\mathrm{Z}}}(v_{\mathrm{X}},\ v_{\mathrm{Y}},\ v_{\mathrm{X}})\ =\ \frac{1}{v_{\mathrm{X}}+v_{\mathrm{Y}}+v_{\mathrm{Z}}}v_{\mathrm{XYZ}}\)</div></p>
+<p><div align="center">\({\bf v}_{\mathrm{XYZ}}\ =\ (v_{\mathrm{X}}+v_{\mathrm{Y}}+v_{\mathrm{Z}})v_{\mathrm{xyz}}\)</div></p>
+<p>&nbsp;</p>
+<p>Now we can solve for \({\bf w}_{\mathrm{XYZ}}\) by using our known value of \(w_{\mathrm{Y}}\) and the above conversion from xyz space to XYZ space.</p>
+<p>&nbsp;</p>
+<p><div align="center">\(w_{\mathrm{y}}=\frac{w_{\mathrm{Y}}}{w_{\mathrm{X}}+w_{\mathrm{Y}}+w_{\mathrm{Z}}}\)</div></p>
+<p><div align="center">\((w_{\mathrm{X}}+w_{\mathrm{Y}}+w_{\mathrm{Z}})=\frac{w_{\mathrm{Y}}}{w_{\mathrm{y}}}=\frac{1}{w_{\mathrm{y}}}\)</div></p>
+<p><div align="center">\({\bf w}_{\mathrm{XYZ}} = (w_{\mathrm{X}}+w_{\mathrm{Y}}+w_{\mathrm{Z}})w_{\mathrm{xyz}} = (\frac{1}{w_{\mathrm{y}}})w_{\mathrm{xyz}}\)</div></p>
+<p>&nbsp;</p>
+<p>Now we can work towards solving for \({\bf M}\). To do this we first need to recall that the columns of \({\bf M}\) are the red, green, and blue primaries in XYZ space.&nbsp;Let's define&nbsp;\({\bf M}\) using our xyz to XYZ conversion,</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf M} = \begin{bmatrix}{\bf r}_{\mathrm{XYZ}}\ &amp; \ {\bf g}_{\mathrm{XYZ}}\ &amp; \ {\bf b}_{\mathrm{XYZ}}\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf M} = \begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}){\bf r}_{\mathrm{xyz}}\ &amp; \ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}){\bf g}_{\mathrm{xyz}}\ &amp; \ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}}){\bf b}_{\mathrm{xyz}}\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Expanding our column vector notation we get:</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf M} = \begin{bmatrix} (r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}})r_{\mathrm{x}}\ &amp; \ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}})g_{\mathrm{x}}\ &amp; \ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})b_{\mathrm{x}} \\ (r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}})r_{\mathrm{y}}\ &amp; \ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}})g_{\mathrm{y}}\ &amp; \ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})b_{\mathrm{y}} \\ (r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}})r_{\mathrm{z}}\ &amp; \ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}})g_{\mathrm{z}}\ &amp; \ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})b_{\mathrm{z}}\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Noticing that each column of \({\bf M}\) is a scalar multiple of the respective xyz primary color, we can&nbsp;factor a scale matrix out of&nbsp;\({\bf M}\) like so:</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf M} = \begin{bmatrix}r_{\mathrm{x}} &amp; g_{\mathrm{x}} &amp; b_{\mathrm{x}} \\ r_{\mathrm{y}} &amp; g_{\mathrm{y}} &amp; b_{\mathrm{y}} \\ r_{\mathrm{z}} &amp; g_{\mathrm{z}} &amp; b_{\mathrm{z}}\end{bmatrix}\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) &amp; 0 &amp; 0 \\ 0 &amp; (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) &amp; 0 \\ 0 &amp; 0 &amp; (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>We know all of xyz primary values and thus know the&nbsp;left matrix in the above equation. Our unknowns are now down to the three scalar values that make up the right matrix. Note that while each of those scalars is written as a sum of X, Y and Z components, we only really care about the summed result and not the individual parts. That is why I say there are only three unknowns instead of nine. In order to solve for the three unknowns, we will use our known&nbsp;RGB and XYZ values of the white point. Because \({\bf M}\) transforms from RGB to XYZ space, we can declare the following equality:</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf w}_{\mathrm{XYZ}} = {\bf M} {\bf w}_{\mathrm{RGB}}\)</div></p>
+<p><div align="center">\({\bf w}_{\mathrm{XYZ}} = \begin{bmatrix}r_{\mathrm{x}} &amp; g_{\mathrm{x}} &amp; b_{\mathrm{x}} \\ r_{\mathrm{y}} &amp; g_{\mathrm{y}} &amp; b_{\mathrm{y}} \\ r_{\mathrm{z}} &amp; g_{\mathrm{z}} &amp; b_{\mathrm{z}}\end{bmatrix}\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) &amp; 0 &amp; 0 \\ 0 &amp; (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) &amp; 0 \\ 0 &amp; 0 &amp; (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix} {\bf w}_{\mathrm{RGB}}\)</div></p>
+<p>&nbsp;</p>
+<p>Let's substitute in our know the value of &nbsp;\({\bf w}_{\mathrm{RGB}}\).</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf w}_{\mathrm{XYZ}} = \begin{bmatrix}r_{\mathrm{x}} &amp; g_{\mathrm{x}} &amp; b_{\mathrm{x}} \\ r_{\mathrm{y}} &amp; g_{\mathrm{y}} &amp; b_{\mathrm{y}} \\ r_{\mathrm{z}} &amp; g_{\mathrm{z}} &amp; b_{\mathrm{z}}\end{bmatrix}\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) &amp; 0 &amp; 0 \\ 0 &amp; (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) &amp; 0 \\ 0 &amp; 0 &amp; (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix} \begin{bmatrix}1\\1\\1\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Now we can multiply our substituted&nbsp;\({\bf w}_{\mathrm{RGB}}\) vector by the scale matrix.</p>
+<p>&nbsp;</p>
+<p><div align="center">\({\bf w}_{\mathrm{XYZ}} = \begin{bmatrix}r_{\mathrm{x}} &amp; g_{\mathrm{x}} &amp; b_{\mathrm{x}} \\ r_{\mathrm{y}} &amp; g_{\mathrm{y}} &amp; b_{\mathrm{y}} \\ r_{\mathrm{z}} &amp; g_{\mathrm{z}} &amp; b_{\mathrm{z}}\end{bmatrix}\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) \\ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) \\ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>We will now left multiply each side of the equation by the inverse of our remaining 3x3 matrix. This will put all of our known values on the left side of the equation and our unknown values on the right. If you are unfamiliar with calculating the inverse of a 3x3 matrix, I will provide code at the end of the article, but for the sake of sanity won't be writing a full derivation&nbsp;here. <a href="http://www.google.com/search?q=matrix+inverse">Google</a> should bring up a ton of results about the process including <a href="http://en.wikipedia.org/wiki/Invertible_matrix">this one from Wikipedia</a> and <a href="http://www.mathwords.com/i/inverse_of_a_matrix.htm">this one from Mathwords</a>.</p>
+<p>&nbsp;</p>
+<p><div align="center">\(\begin{bmatrix}r_{\mathrm{x}} &amp; g_{\mathrm{x}} &amp; b_{\mathrm{x}} \\ r_{\mathrm{y}} &amp; g_{\mathrm{y}} &amp; b_{\mathrm{y}} \\ r_{\mathrm{z}} &amp; g_{\mathrm{z}} &amp; b_{\mathrm{z}}\end{bmatrix}^{-1} {\bf w}_{\mathrm{XYZ}} = \begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) \\ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) \\ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>We can now rebuild our RGB to XYZ transformation matrix \({\bf M}\). Multiplying our \({\bf w}_{\mathrm{XYZ}}\) vector by the inverse of the above 3x3 matrix will give us the scalar values&nbsp;which convert the primary xyz coordinates to XYZ coordinates. These are the three unknowns of the scalar matrix that we factored out of \({\bf M}\).</p>
+<p>&nbsp;</p>
+<p>In order to get the matrix&nbsp;transforming in the opposite direction (from XYZ space to linear RGB space), we can use the inverse of \({\bf M}\). We could also derive the matrix in a similar fashion to above, but just using the inverse seems like a simpler approach after this much typing.</p>
+<p>&nbsp;</p>
+<h1>Linear Transformation Example for sRGB Space</h1>
+<p>To help understand the matrix derivation, let's run through the numbers&nbsp;for the sRGB color space. First off, recall the xy chromaticity coordinates of red, green, blue and white that&nbsp;we plotted on the chromaticity diagram.</p>
+<p><div align="center">\({\bf r}_{\mathrm{xy}}=\begin{bmatrix}0.64\\0.33\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf g}_{\mathrm{xy}}=\begin{bmatrix}0.30\\0.60\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf b}_{\mathrm{xy}}=\begin{bmatrix}0.15\\0.06\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf w}_{\mathrm{xy}}=\begin{bmatrix}0.3127\\0.3290\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Next convert the xy coordinates to xyz coordinates.</p>
+<p><div align="center">\({\bf r}_{\mathrm{xyz}}=\begin{bmatrix}r_{\mathrm{x}} \\ r_{\mathrm{y}} \\ 1-r_{\mathrm{x}}-r_{\mathrm{y}}\end{bmatrix} = \begin{bmatrix}0.64 \\ 0.33 \\ 0.03\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf g}_{\mathrm{xyz}}=\begin{bmatrix}g_{\mathrm{x}} \\ g_{\mathrm{y}} \\ 1-g_{\mathrm{x}}-g_{\mathrm{y}}\end{bmatrix} = \begin{bmatrix}0.30 \\ 0.60 \\ 0.10\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf b}_{\mathrm{xyz}}=\begin{bmatrix}b_{\mathrm{x}} \\ b_{\mathrm{y}} \\ 1-b_{\mathrm{x}}-b_{\mathrm{y}}\end{bmatrix} = \begin{bmatrix}0.15 \\ 0.06 \\ 0.79\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf w}_{\mathrm{xyz}}=\begin{bmatrix}w_{\mathrm{x}} \\ w_{\mathrm{y}} \\ 1-w_{\mathrm{x}}-w_{\mathrm{y}}\end{bmatrix} = \begin{bmatrix}0.3127 \\ 0.3290 \\ 0.3583\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Next convert our white point xyz coordinate to an XYZ coordinate by using a Y luminance value of 1.</p>
+<p><div align="center">\({\bf w}_{\mathrm{XYZ}} = (\frac{1}{w_{\mathrm{y}}})w_{\mathrm{xyz}} = \frac{1}{0.3290}\begin{bmatrix}0.3127 \\ 0.3290 \\ 0.3583\end{bmatrix} = \begin{bmatrix}0.950452\\1\\1.08906\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Solve for the (X+Y+Z) scalar values that will&nbsp;convert each xyz primary to XYZ&nbsp;space.</p>
+<p><div align="center">\(\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) \\ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) \\ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix} = \begin{bmatrix}r_{\mathrm{x}} &amp; g_{\mathrm{x}} &amp; b_{\mathrm{x}} \\ r_{\mathrm{y}} &amp; g_{\mathrm{y}} &amp; b_{\mathrm{y}} \\ r_{\mathrm{z}} &amp; g_{\mathrm{z}} &amp; b_{\mathrm{z}}\end{bmatrix}^{-1} {\bf w}_{\mathrm{XYZ}}\)</div></p>
+<p><div align="center">\(\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) \\ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) \\ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix} = \begin{bmatrix}0.64 &amp; 0.30 &amp; 0.15 \\ 0.33 &amp; 0.60 &amp; 0.06 \\ 0.03 &amp; 0.10 &amp; 0.79\end{bmatrix}^{-1} \begin{bmatrix}0.950452\\1\\1.08906\end{bmatrix}\)</div></p>
+<p><div align="center">\(\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) \\ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) \\ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix} \approx \begin{bmatrix}2.08835 &amp; -0.990629 &amp; -0.321285 \\ -1.15529 &amp; 2.23606 &amp; 0.049531 \\ 0.066934 &amp; -0.245426 &amp; 1.27175\end{bmatrix} \begin{bmatrix}0.950452\\1\\1.08906\end{bmatrix}\)</div></p>
+<p><div align="center">\(\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) \\ (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) \\ (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix} \approx \begin{bmatrix}0.644349\\1.19195\\1.2032\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Reconstruct the matrix \({\bf M}\) which transforms from linear sRGB space to XYZ space.</p>
+<p><div align="center">\({\bf M} = \begin{bmatrix}r_{\mathrm{x}} &amp; g_{\mathrm{x}} &amp; b_{\mathrm{x}} \\ r_{\mathrm{y}} &amp; g_{\mathrm{y}} &amp; b_{\mathrm{y}} \\ r_{\mathrm{z}} &amp; g_{\mathrm{z}} &amp; b_{\mathrm{z}}\end{bmatrix}\begin{bmatrix}(r_{\mathrm{X}}+r_{\mathrm{Y}}+r_{\mathrm{Z}}) &amp; 0 &amp; 0 \\ 0 &amp; (g_{\mathrm{X}}+g_{\mathrm{Y}}+g_{\mathrm{Z}}) &amp; 0 \\ 0 &amp; 0 &amp; (b_{\mathrm{X}}+b_{\mathrm{Y}}+b_{\mathrm{Z}})\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf M} \approx \begin{bmatrix}0.64 &amp; 0.30 &amp; 0.15 \\ 0.33 &amp; 0.60 &amp; 0.06 \\ 0.03 &amp; 0.10 &amp; 0.79\end{bmatrix}\begin{bmatrix}0.644349 &amp; 0 &amp; 0 \\ 0 &amp; 1.19195 &amp; 0 \\ 0 &amp; 0 &amp; 1.2032\end{bmatrix}\)</div></p>
+<p><div align="center">\({\bf M} \approx \begin{bmatrix}0.412383 &amp; 0.357585 &amp; 0.18048 \\ 0.212635 &amp; 0.71517 &amp; 0.072192 \\ 0.01933 &amp; 0.119195 &amp; 0.950528\end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>If you want the reverse transformation from XYZ to linear sRGB space, use the inverse of \({\bf M}\).</p>
+<p><div align="center">\({\bf M}^{-1} \approx \begin{bmatrix}0.412383 &amp; 0.357585 &amp; 0.18048 \\ 0.212635 &amp; 0.71517 &amp; 0.072192 \\ 0.01933 &amp; 0.119195 &amp; 0.950528\end{bmatrix}^{-1} \approx \begin{bmatrix} 3.24103 &amp; -1.53741 &amp; -0.49862 \\ -0.969242 &amp; 1.87596 &amp; 0.041555 \\ 0.055632 &amp; -0.203979 &amp; 1.05698 \end{bmatrix}\)</div></p>
+<p>&nbsp;</p>
+<p>Checking the <a href="http://www.color.org/sRGB.xalter">sRGB specification on color.org</a>,&nbsp;you will&nbsp;find&nbsp;the same&nbsp;values for \({\bf M}\) and \({\bf M}^{-1}\) (rounded to 4 decimal places) listed in equations <em>1.8</em> and <em>1.1</em> respectively.&nbsp;That makes me feel comfortable that the math was all done correctly and implies we can use this method to generate conversion matrices to and from any linear RGB space.</p>
+<p>&nbsp;</p>
+  		</td>
+</table>
+
+<div class="date">18 May 2015</div>
+
+</div>
+
+<!--
+<div id="related">
+  <h2>Related Posts</h2>
+  <ul class="posts">
+    
+      <li><span>02 Jul 2015</span> &raquo; <a href="/2015/07/02/Leetcode-two-sum.html">Leetcode 01：Two Sum</a></li>
+    
+      <li><span>16 May 2015</span> &raquo; <a href="/2015/05/16/hello-world.html">Hello World</a></li>
+    
+  </ul>
+</div>
+-->
+	      </section>
+    
+  </body>
+</html>
